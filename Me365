@@ -1,0 +1,143 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from yahoo_fin import stock_info as si
+import requests
+import plotly.express as px
+
+# Configuración general
+st.set_page_config(page_title="Planificación Financiera", layout="wide")
+
+# Función para obtener rendimiento de CETES
+def obtener_rendimiento_cetes():
+    try:
+        cetes_rendimiento = si.get_quote_table("SHV")['Forward Dividend & Yield'] * 100
+    except KeyError:
+        cetes_rendimiento = 10.0  # Rendimiento aproximado en caso de error
+    return cetes_rendimiento
+
+# Función para obtener rendimiento de Fondos/ETFs
+def obtener_rendimiento_etf(etf_symbol):
+    try:
+        etf_rendimiento = si.get_quote_table(etf_symbol)['Forward Dividend & Yield'] * 100
+    except KeyError:
+        etf_rendimiento = 8.0  # Rendimiento aproximado en caso de error
+    return etf_rendimiento
+
+# Función para obtener rendimiento de Criptomonedas
+def obtener_rendimiento_cripto():
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true"
+        response = requests.get(url)
+        data = response.json()
+        bitcoin_change = data['bitcoin']['usd_24h_change']
+        ethereum_change = data['ethereum']['usd_24h_change']
+        rendimiento_promedio = (bitcoin_change + ethereum_change) / 2
+        return max(rendimiento_promedio, 0)
+    except Exception as e:
+        return 50.0  # Rendimiento estimado en caso de error
+
+# Función para obtener datos de rendimiento
+def obtener_datos_rendimientos():
+    cetes = obtener_rendimiento_cetes()
+    fondos = obtener_rendimiento_etf("VOO")  # Vanguard S&P 500 ETF
+    criptomonedas = obtener_rendimiento_cripto()
+    rendimientos = pd.DataFrame({
+        "Instrumento": ["CETES", "Fondos/ETFs", "Criptomonedas"],
+        "Rendimiento Anual (%)": [cetes, fondos, criptomonedas]
+    })
+    return rendimientos
+
+# Título principal
+st.title("📊 Planificación Financiera Personal")
+st.subheader("Gestiona tus metas: Casa en 10 años y Retiro a largo plazo")
+
+# Crear pestañas
+tab1, tab2, tab3 = st.tabs(["🏠 Comprar Casa", "🪙 Planificación para el Retiro", "⚙️ Personalización de Gastos"])
+
+# Pestaña: Comprar Casa
+with tab1:
+    st.header("Planificación para Comprar Casa")
+    # Entradas del usuario
+    casa_costo = st.number_input("Costo estimado de la casa:", min_value=100000.0, value=1500000.0, step=10000.0)
+    ahorros_actuales = st.number_input("Ahorros actuales:", min_value=0.0, value=100000.0, step=10000.0)
+    plazo_años = st.slider("Plazo para la compra (años):", min_value=5, max_value=20, value=10)
+    
+    # Obtener datos reales de rendimiento
+    rendimientos = obtener_datos_rendimientos()
+    st.dataframe(rendimientos)
+
+    # Calcula la mejor asignación de fondos según el rendimiento
+    rendimiento_cetes = rendimientos.loc[rendimientos['Instrumento'] == "CETES", "Rendimiento Anual (%)"].values[0]
+    rendimiento_fondos = rendimientos.loc[rendimientos['Instrumento'] == "Fondos/ETFs", "Rendimiento Anual (%)"].values[0]
+    rendimiento_cripto = rendimientos.loc[rendimientos['Instrumento'] == "Criptomonedas", "Rendimiento Anual (%)"].values[0]
+
+    # Dividir los ahorros en proporciones ideales
+    total_rendimiento = rendimiento_cetes + rendimiento_fondos + rendimiento_cripto
+    porcentaje_cetes = rendimiento_cetes / total_rendimiento
+    porcentaje_fondos = rendimiento_fondos / total_rendimiento
+    porcentaje_cripto = rendimiento_cripto / total_rendimiento
+
+    # Explicación de la asignación
+    st.write("### Explicación de la Asignación:")
+    st.write(
+        f"""
+        - **CETES:** ({porcentaje_cetes:.2%}) Son considerados una inversión segura y con bajo riesgo. Por ello, 
+          son ideales para proteger capital en el corto plazo.
+        - **Fondos/ETFs:** ({porcentaje_fondos:.2%}) Ofrecen un rendimiento más alto al diversificar en mercados financieros, 
+          aunque tienen un riesgo moderado.
+        - **Criptomonedas:** ({porcentaje_cripto:.2%}) Pueden proporcionar altos rendimientos en poco tiempo, 
+          pero también tienen alta volatilidad. Se asigna un porcentaje más bajo para equilibrar el riesgo.
+        """
+    )
+
+    # Crear un DataFrame para la gráfica
+    grafica_df = pd.DataFrame({
+        "Instrumento": ["CETES", "Fondos/ETFs", "Criptomonedas"],
+        "Porcentaje de Inversión": [porcentaje_cetes * 100, porcentaje_fondos * 100, porcentaje_cripto * 100]
+    })
+
+    # Gráfica interactiva con Plotly
+    fig = px.bar(
+        grafica_df,
+        x="Instrumento",
+        y="Porcentaje de Inversión",
+        color="Instrumento",
+        text="Porcentaje de Inversión",
+        title="Proporción de Inversión Recomendada",
+        labels={"Porcentaje de Inversión": "Porcentaje (%)"},
+        color_discrete_sequence=["#FF9999", "#66B3FF", "#99FF99"]
+    )
+    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+    fig.update_layout(yaxis=dict(title="Porcentaje (%)"), xaxis=dict(title="Instrumento"), showlegend=False)
+    st.plotly_chart(fig)
+
+# Pestaña: Planificación para el Retiro
+with tab2:
+    st.header("Planificación para el Retiro")
+    # Entradas del usuario
+    edad_actual = st.number_input("Tu edad actual:", min_value=18, max_value=100, value=22)
+    edad_retiro = st.number_input("Edad deseada de retiro:", min_value=40, max_value=100, value=65)
+    gastos_mensuales = st.number_input("Gastos mensuales estimados en retiro:", min_value=0.0, value=20000.0, step=1000.0)
+    ahorro_actual = st.number_input("Ahorro actual para el retiro:", min_value=0.0, value=50000.0, step=5000.0)
+
+    # Cálculos básicos (puedes adaptarlos con rendimientos reales también)
+    años_retiro = edad_retiro - edad_actual
+    capital_necesario = gastos_mensuales * 12 * (85 - edad_retiro)  # Supone 20 años de retiro
+    ahorro_mensual_retiro = (capital_necesario - ahorro_actual) / (años_retiro * 12)
+
+    st.write(f"**Capital necesario para el retiro**: ${capital_necesario:,.2f}")
+    st.write(f"**Ahorro mensual necesario**: ${ahorro_mensual_retiro:,.2f}")
+
+# Pestaña: Personalización de Gastos
+with tab3:
+    st.header("Personalización de Gastos")
+    st.write("Aquí puedes personalizar tus gastos mensuales y anuales.")
+    gasto_viajes = st.number_input("Presupuesto anual para viajes:", min_value=0.0, value=30000.0, step=1000.0)
+    gasto_gym = st.number_input("Gastos mensuales en gimnasio:", min_value=0.0, value=1500.0, step=100.0)
+    gasto_gasolina = st.number_input("Gastos mensuales en gasolina:", min_value=0.0, value=3000.0, step=100.0)
+    otros_gastos = st.number_input("Otros gastos mensuales:", min_value=0.0, value=5000.0, step=100.0)
+    
+    total_gastos = gasto_viajes + (gasto_gym + gasto_gasolina + otros_gastos) * 12
+    st.write(f"**Total de gastos anuales personalizados:** ${total_gastos:,.2f}")
