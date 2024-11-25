@@ -130,7 +130,7 @@ with tab2:
     st.write(f"**Capital necesario para el retiro**: ${capital_necesario:,.2f}")
     st.write(f"**Ahorro mensual necesario**: ${ahorro_mensual_retiro:,.2f}")
 
-# Pestaña: Personalización de Gastos
+# Pestaña: Personalización
 with tab3:
     st.header("Personalización de Gastos")
     st.write("Aquí puedes personalizar tus gastos mensuales y anuales.")
