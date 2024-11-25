@@ -1,0 +1,8 @@
+streamlit
+numpy
+plotly.express
+pandas
+requests
+requests_html
+yahoo_fin
+maltplotlib.pyplot
