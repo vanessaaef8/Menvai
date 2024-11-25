@@ -1,8 +1,8 @@
 streamlit
 numpy
-plotly.express
 pandas
+plotly
+yfinance
 requests
-requests_html
-yahoo_fin
-maltplotlib.pyplot
+scipy
+sqlite3
